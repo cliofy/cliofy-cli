@@ -140,14 +140,16 @@ export const mockTaskLists = {
 };
 
 // Configuration test data
+const getTestEndpoint = () => process.env.TEST_API_ENDPOINT || process.env.CLIOFY_ENDPOINT || 'http://localhost:5173';
+
 export const mockConfigs = {
   default: {
-    endpoint: 'http://localhost:5173',
+    endpoint: getTestEndpoint(),
     timeout: 30000
   },
   
   authenticated: {
-    endpoint: 'http://localhost:5173',
+    endpoint: getTestEndpoint(),
     timeout: 30000,
     apiKey: mockAuthResponses.validLogin.accessToken,
     refreshToken: mockAuthResponses.validLogin.refreshToken,
@@ -156,7 +158,7 @@ export const mockConfigs = {
   },
   
   expired: {
-    endpoint: 'http://localhost:5173',
+    endpoint: getTestEndpoint(),
     timeout: 30000,
     apiKey: 'expired-token',
     refreshToken: 'expired-refresh-token',

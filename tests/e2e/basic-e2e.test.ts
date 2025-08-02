@@ -9,6 +9,7 @@ import os from 'os';
 import { ConfigManager } from '../../packages/core/src/config/manager';
 import { APIClient } from '../../packages/core/src/api/client';
 import { AuthManager } from '../../packages/core/src/auth/manager';
+import { DEFAULT_CONFIG } from '../../packages/core/src/config/types';
 
 describe('Basic E2E Tests', () => {
   let tempConfigDir: string;
@@ -42,8 +43,8 @@ describe('Basic E2E Tests', () => {
       
       // 2. Load default config
       const initialConfig = configManager.loadConfig();
-      expect(initialConfig.endpoint).toBe('http://localhost:5173');
-      expect(initialConfig.timeout).toBe(30000);
+      expect(initialConfig.endpoint).toBe(DEFAULT_CONFIG.endpoint);
+      expect(initialConfig.timeout).toBe(DEFAULT_CONFIG.timeout);
       
       // 3. Update configuration
       const newConfig = {
@@ -156,7 +157,7 @@ describe('Basic E2E Tests', () => {
       
       // 2. ConfigManager should handle corruption gracefully
       const config = configManager.loadConfig();
-      expect(config.endpoint).toBe('http://localhost:5173'); // Default fallback
+      expect(config.endpoint).toBe(DEFAULT_CONFIG.endpoint); // Default fallback
     });
 
     it('should handle missing configuration directory', () => {
@@ -166,7 +167,7 @@ describe('Basic E2E Tests', () => {
       
       // 2. Should create directory and work normally
       const config = newConfigManager.loadConfig();
-      expect(config.endpoint).toBe('http://localhost:5173');
+      expect(config.endpoint).toBe(DEFAULT_CONFIG.endpoint);
       
       // 3. Directory should be created
       expect(fs.existsSync(nonExistentDir)).toBe(true);

@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { DEFAULT_CONFIG } from '../../packages/core/src/config/types';
 
 // Mock filesystem operations
 jest.mock('fs', () => ({
@@ -50,7 +51,7 @@ describe('ConfigManager Simple Tests', () => {
       
       expect(config).toHaveProperty('endpoint');
       expect(config).toHaveProperty('timeout');
-      expect(config.endpoint).toBe('http://localhost:5173');
+      expect(config.endpoint).toBe(DEFAULT_CONFIG.endpoint);
       expect(config.timeout).toBe(30000);
     });
 
@@ -89,7 +90,7 @@ describe('ConfigManager Simple Tests', () => {
       const config = configManager.loadConfig();
       
       // Should fall back to default config
-      expect(config.endpoint).toBe('http://localhost:5173');
+      expect(config.endpoint).toBe(DEFAULT_CONFIG.endpoint);
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to load configuration'),
         expect.any(Error)
@@ -160,7 +161,7 @@ describe('ConfigManager Simple Tests', () => {
       const { ConfigManager } = await import('../../packages/core/src/config/manager');
       
       const authConfig = {
-        endpoint: 'http://localhost:5173',
+        endpoint: DEFAULT_CONFIG.endpoint,
         timeout: 30000,
         apiKey: 'valid-token',
         userId: 'user-123'
@@ -193,7 +194,7 @@ describe('ConfigManager Simple Tests', () => {
       const { ConfigManager } = await import('../../packages/core/src/config/manager');
       
       const authConfig = {
-        endpoint: 'http://localhost:5173',
+        endpoint: DEFAULT_CONFIG.endpoint,
         timeout: 30000,
         apiKey: 'bearer-token-123',
         userId: 'user-123'
@@ -218,7 +219,7 @@ describe('ConfigManager Simple Tests', () => {
       const { ConfigManager } = await import('../../packages/core/src/config/manager');
       
       const expiredConfig = {
-        endpoint: 'http://localhost:5173',
+        endpoint: DEFAULT_CONFIG.endpoint,
         timeout: 30000,
         apiKey: 'expired-token',
         tokenExpiresAt: Date.now() - 1000 // Expired 1 second ago
@@ -237,7 +238,7 @@ describe('ConfigManager Simple Tests', () => {
       
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue(JSON.stringify({
-        endpoint: 'http://localhost:5173',
+        endpoint: DEFAULT_CONFIG.endpoint,
         timeout: 30000
       }));
       
@@ -267,7 +268,7 @@ describe('ConfigManager Simple Tests', () => {
       const { ConfigManager } = await import('../../packages/core/src/config/manager');
       
       const authConfig = {
-        endpoint: 'http://localhost:5173',
+        endpoint: DEFAULT_CONFIG.endpoint,
         timeout: 30000,
         apiKey: 'token-to-clear',
         refreshToken: 'refresh-to-clear',

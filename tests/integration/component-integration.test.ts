@@ -10,6 +10,7 @@ import os from 'os';
 import { ConfigManager } from '../../packages/core/src/config/manager';
 import { APIClient } from '../../packages/core/src/api/client';
 import { AuthManager } from '../../packages/core/src/auth/manager';
+import { DEFAULT_CONFIG } from '../../packages/core/src/config/types';
 
 describe('Component Integration Tests', () => {
   let tempConfigDir: string;
@@ -157,7 +158,7 @@ describe('Component Integration Tests', () => {
       // 3. New components should see persisted authentication
       expect(authManager2.isAuthenticated()).toBe(true);
       expect(authManager2.getCurrentUserId()).toBe('persistent-user');
-      expect(apiClient2.getBaseURL()).toBe('http://localhost:5173'); // Default endpoint
+      expect(apiClient2.getBaseURL()).toBe(DEFAULT_CONFIG.endpoint); // Default endpoint
     });
   });
 
@@ -175,7 +176,7 @@ describe('Component Integration Tests', () => {
       
       // 3. All components should handle corruption gracefully
       expect(authManager2.isAuthenticated()).toBe(false);
-      expect(apiClient2.getBaseURL()).toBe('http://localhost:5173'); // Default
+      expect(apiClient2.getBaseURL()).toBe(DEFAULT_CONFIG.endpoint); // Default
       
       // 4. Should be able to recover by saving new config
       configManager2.saveConfig({

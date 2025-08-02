@@ -4,6 +4,7 @@
 
 import { ConfigManager } from '../../packages/core/src/config/manager';
 import { APIClient } from '../../packages/core/src/api/client';
+import { DEFAULT_CONFIG } from '../../packages/core/src/config/types';
 
 // Mock dependencies
 jest.mock('../../packages/core/src/config/manager');
@@ -32,8 +33,8 @@ describe('AuthManager Simple Tests', () => {
     // Mock config property with getter
     Object.defineProperty(mockConfigManager, 'config', {
       get: jest.fn(() => ({
-        endpoint: 'http://localhost:5173',
-        timeout: 30000,
+        endpoint: DEFAULT_CONFIG.endpoint,
+        timeout: DEFAULT_CONFIG.timeout,
         apiKey: undefined,
         userId: undefined
       })),
