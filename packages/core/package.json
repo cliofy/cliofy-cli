@@ -1,0 +1,41 @@
+{
+  "name": "@cliofy/core",
+  "version": "0.1.0",
+  "description": "Core logic package for Cliofy CLI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "build:npm": "tsc --build",
+    "build:standalone": "esbuild src/index.ts --bundle --platform=node --outfile=dist/bundle.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "jest",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8",
+    "ts-jest": "^29.1.1",
+    "prettier": "^3.1.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts",
+      "!src/**/__tests__/**"
+    ]
+  }
+}

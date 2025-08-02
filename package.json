@@ -1,0 +1,62 @@
+{
+  "name": "cliofy-cli",
+  "version": "0.1.0",
+  "description": "Modern CLI tool for Cliofy task management with infinite hierarchical nesting",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "build": "pnpm --recursive run build",
+    "build:npm": "pnpm --recursive run build:npm",
+    "build:standalone": "pnpm --recursive run build:standalone",
+    "build:binary": "pnpm --recursive run build:binary",
+    "dev": "pnpm --recursive --parallel run dev",
+    "test": "pnpm --recursive run test",
+    "test:unit": "pnpm --recursive run test:unit",
+    "test:e2e": "pnpm --recursive run test:e2e",
+    "lint": "pnpm --recursive run lint",
+    "format": "pnpm --recursive run format",
+    "preflight": "pnpm run lint && pnpm run test && pnpm run build",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules .pnpm-store"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "chalk": "^5.3.0",
+    "esbuild": "^0.19.8",
+    "eslint": "^8.55.0",
+    "jest": "^29.7.0",
+    "pkg": "^5.8.1",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "cli",
+    "task-management",
+    "productivity",
+    "hierarchical",
+    "todo"
+  ],
+  "author": "Cliofy Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cliofy/cliofy-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/cliofy/cliofy-cli/issues"
+  },
+  "homepage": "https://github.com/cliofy/cliofy-cli#readme",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "yargs": "^17.7.2"
+  }
+}
