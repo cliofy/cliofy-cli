@@ -64,7 +64,8 @@ function runCommand(cmd, args, options = {}) {
 async function checkDevServer() {
   try {
     const { default: axios } = await import('axios');
-    await axios.get('http://localhost:5173/api/health-check', { timeout: 3000 });
+    const endpoint = process.env.CLIOFY_ENDPOINT || process.env.TEST_API_ENDPOINT || 'http://localhost:5173';
+    await axios.get(`${endpoint}/api/health-check`, { timeout: 3000 });
     return true;
   } catch (error) {
     return false;
@@ -109,11 +110,13 @@ async function runIntegrationTests() {
  */
 async function runE2ETests() {
   log.step('Checking if development server is running...');
+  const endpoint = process.env.CLIOFY_ENDPOINT || process.env.TEST_API_ENDPOINT || 'http://localhost:5173';
   const serverRunning = await checkDevServer();
   
   if (!serverRunning) {
-    log.warning('Development server is not running at http://localhost:5173');
+    log.warning(`Development server is not running at ${endpoint}`);
     log.info('Please start the server with: pnpm dev');
+    log.info('Or set TEST_API_ENDPOINT environment variable to point to your server');
     log.info('Skipping E2E tests...');
     return true; // Don't fail the build for missing server
   }

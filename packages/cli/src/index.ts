@@ -86,7 +86,7 @@ async function main(): Promise<void> {
       .option('endpoint', {
         type: 'string',
         description: 'API endpoint URL',
-        default: 'http://localhost:5173',
+        default: process.env.CLIOFY_ENDPOINT || process.env.TEST_API_ENDPOINT || 'http://localhost:5173',
       })
       .option('timeout', {
         type: 'number',

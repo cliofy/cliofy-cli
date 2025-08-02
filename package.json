@@ -21,6 +21,7 @@
     "test:unit": "npx jest --config jest.config.working.js tests/unit --verbose",
     "test:integration": "npx jest --config jest.config.working.js tests/integration --verbose",
     "test:e2e": "npx jest --config jest.config.working.js tests/e2e --verbose",
+    "test:e2e:5174": "TEST_API_ENDPOINT=http://localhost:5174 npx jest --config jest.config.working.js tests/e2e --verbose",
     "test:watch": "npx jest --config jest.config.working.js --watch",
     "test:coverage": "npx jest --config jest.config.working.js --coverage",
     "lint": "node scripts/test-runner.js lint",

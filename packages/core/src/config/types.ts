@@ -31,8 +31,8 @@ export type ConfigUpdate = Partial<Config>;
  * Default configuration values
  */
 export const DEFAULT_CONFIG: Config = {
-  endpoint: 'http://localhost:5173',
-  timeout: 30000,
+  endpoint: process.env.CLIOFY_ENDPOINT || process.env.TEST_API_ENDPOINT || 'http://localhost:5173',
+  timeout: parseInt(process.env.CLIOFY_TIMEOUT || '30000', 10),
 };
 
 /**
