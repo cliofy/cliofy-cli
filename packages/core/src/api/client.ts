@@ -16,6 +16,13 @@ import {
   UserProfile,
   UserProfileResponse,
   UpdateProfileRequest,
+  LoginRequestSchema,
+  AuthResponseSchema,
+  RegisterRequestSchema,
+  RegisterResponseSchema,
+  RefreshTokenResponseSchema,
+  AuthVerifyResponseSchema,
+  UserProfileResponseSchema,
 } from '../models/auth';
 import {
   Task,
@@ -33,6 +40,9 @@ import {
   TaskStatesBatchUpdateResponse,
   Attachment,
   CreateAttachmentRequest,
+  TaskSchema,
+  CreateTaskRequestSchema,
+  UpdateTaskRequestSchema,
 } from '../models/task';
 
 /**
@@ -193,7 +203,7 @@ export class APIClient {
         { timeout: this.configManager.config.timeout }
       );
 
-      const refreshResponse = RefreshTokenResponse.parse(response.data);
+      const refreshResponse = RefreshTokenResponseSchema.parse(response.data);
       
       this.configManager.updateTokens(
         refreshResponse.accessToken,
@@ -256,11 +266,11 @@ export class APIClient {
    * Login user
    */
   async login(email: string, password: string): Promise<AuthResponse> {
-    const loginData = LoginRequest.parse({ email, password });
+    const loginData = LoginRequestSchema.parse({ email, password });
     
     try {
       const response = await this.httpClient.post('/api/auth/login', loginData);
-      return AuthResponse.parse(response.data);
+      return AuthResponseSchema.parse(response.data);
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
@@ -270,11 +280,11 @@ export class APIClient {
    * Register new user
    */
   async register(email: string, password: string): Promise<RegisterResponse> {
-    const registerData = RegisterRequest.parse({ email, password });
+    const registerData = RegisterRequestSchema.parse({ email, password });
     
     try {
       const response = await this.httpClient.post('/api/auth/register', registerData);
-      return RegisterResponse.parse(response.data);
+      return RegisterResponseSchema.parse(response.data);
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
@@ -286,7 +296,7 @@ export class APIClient {
   async verifyToken(): Promise<AuthVerifyResponse> {
     try {
       const response = await this.httpClient.post('/api/auth/verify');
-      return AuthVerifyResponse.parse(response.data);
+      return AuthVerifyResponseSchema.parse(response.data);
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
@@ -298,7 +308,7 @@ export class APIClient {
   async getUserProfile(): Promise<UserProfile> {
     try {
       const response = await this.httpClient.get('/api/user/profile');
-      const profileResponse = UserProfileResponse.parse(response.data);
+      const profileResponse = UserProfileResponseSchema.parse(response.data);
       return profileResponse.profile;
     } catch (error) {
       throw this.handleError(error as AxiosError);
@@ -311,7 +321,7 @@ export class APIClient {
   async updateUserProfile(updateData: UpdateProfileRequest): Promise<UserProfile> {
     try {
       const response = await this.httpClient.put('/api/user/profile', updateData);
-      const profileResponse = UserProfileResponse.parse(response.data);
+      const profileResponse = UserProfileResponseSchema.parse(response.data);
       return profileResponse.profile;
     } catch (error) {
       throw this.handleError(error as AxiosError);
@@ -332,7 +342,7 @@ export class APIClient {
         throw new APIError('Invalid response format: expected array of tasks');
       }
 
-      return response.data.map((taskData: any) => Task.parse(taskData));
+      return response.data.map((taskData: any) => TaskSchema.parse(taskData));
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
@@ -343,9 +353,9 @@ export class APIClient {
    */
   async createTask(taskData: CreateTaskRequest): Promise<Task> {
     try {
-      const validatedData = CreateTaskRequest.parse(taskData);
+      const validatedData = CreateTaskRequestSchema.parse(taskData);
       const response = await this.httpClient.post('/api/tasks', validatedData);
-      return Task.parse(response.data);
+      return TaskSchema.parse(response.data);
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
@@ -372,9 +382,9 @@ export class APIClient {
    */
   async updateTask(taskId: string, updateData: UpdateTaskRequest): Promise<Task> {
     try {
-      const validatedData = UpdateTaskRequest.parse(updateData);
+      const validatedData = UpdateTaskRequestSchema.parse(updateData);
       const response = await this.httpClient.patch(`/api/tasks/${taskId}`, validatedData);
-      return Task.parse(response.data);
+      return TaskSchema.parse(response.data);
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
