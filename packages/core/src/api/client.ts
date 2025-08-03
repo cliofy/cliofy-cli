@@ -5,24 +5,17 @@
 
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 import { ConfigManager } from '../config/manager';
+import { FirebaseAuthService, FirebaseAuthError } from '../firebase/auth';
 import {
-  AuthResponse,
-  LoginRequest,
-  RegisterRequest,
-  RegisterResponse,
-  RefreshTokenRequest,
-  RefreshTokenResponse,
   AuthVerifyResponse,
   UserProfile,
   UserProfileResponse,
   UpdateProfileRequest,
-  LoginRequestSchema,
-  AuthResponseSchema,
-  RegisterRequestSchema,
-  RegisterResponseSchema,
-  RefreshTokenResponseSchema,
   AuthVerifyResponseSchema,
   UserProfileResponseSchema,
+  // Firebase types
+  FirebaseBackendLoginRequest,
+  FirebaseBackendLoginResponse,
 } from '../models/auth';
 import {
   Task,
@@ -76,11 +69,13 @@ export class APIClient {
   private static instance: APIClient | null = null;
   private httpClient: AxiosInstance;
   private configManager: ConfigManager;
+  private firebaseAuthService: FirebaseAuthService;
   private isRefreshing = false;
   private refreshPromise: Promise<void> | null = null;
 
   constructor(configManager: ConfigManager) {
     this.configManager = configManager;
+    this.firebaseAuthService = new FirebaseAuthService();
     this.httpClient = this.createHttpClient();
     this.setupInterceptors();
   }
@@ -121,15 +116,15 @@ export class APIClient {
     this.httpClient.interceptors.request.use(
       async (config) => {
         // Check if token needs refresh before making request
-        if (this.configManager.needsTokenRefresh() && !this.isRefreshing) {
-          await this.refreshTokenIfNeeded();
-        }
+        await this.refreshTokenIfNeeded();
 
-        // Add auth header if available
-        const apiKey = this.configManager.config.apiKey;
-        if (apiKey) {
-          config.headers = config.headers || {};
-          config.headers['Authorization'] = `Bearer ${apiKey}`;
+        // Add auth headers using ConfigManager's getApiHeaders method
+        // This automatically handles Firebase ID Token vs traditional JWT priority
+        const authHeaders = this.configManager.getApiHeaders();
+        if (config.headers) {
+          Object.assign(config.headers, authHeaders);
+        } else {
+          config.headers = authHeaders as any;
         }
 
         return config;
@@ -147,13 +142,15 @@ export class APIClient {
         if (error.response?.status === 401 && originalRequest && !this.isRefreshing) {
           try {
             await this.refreshTokenIfNeeded();
-            // Retry original request with new token
-            const apiKey = this.configManager.config.apiKey;
-            if (apiKey && originalRequest.headers) {
-              originalRequest.headers['Authorization'] = `Bearer ${apiKey}`;
+            
+            // Retry original request with new auth headers
+            if (originalRequest.headers && this.configManager.isAuthenticated()) {
+              const authHeaders = this.configManager.getApiHeaders();
+              Object.assign(originalRequest.headers, authHeaders);
               return this.httpClient.request(originalRequest);
             }
           } catch (refreshError) {
+            // Clear Firebase tokens on error
             this.configManager.clearTokens();
             throw new APIError('Authentication failed', 401, 'Token refresh failed');
           }
@@ -165,20 +162,22 @@ export class APIClient {
   }
 
   /**
-   * Refresh access token if needed
+   * Refresh Firebase ID token if needed
    */
   private async refreshTokenIfNeeded(): Promise<void> {
     if (this.isRefreshing && this.refreshPromise) {
       return this.refreshPromise;
     }
 
-    if (!this.configManager.needsTokenRefresh()) {
+    // Check if Firebase token refresh is needed
+    if (!this.configManager.needsFirebaseTokenRefresh()) {
       return;
     }
 
-    const refreshToken = this.configManager.getRefreshToken();
+    // Get Firebase refresh token
+    const refreshToken = this.configManager.getFirebaseRefreshToken();
     if (!refreshToken) {
-      throw new APIError('No refresh token available', 401);
+      throw new APIError('No Firebase refresh token available', 401);
     }
 
     this.isRefreshing = true;
@@ -193,26 +192,28 @@ export class APIClient {
   }
 
   /**
-   * Perform actual token refresh
+   * Perform Firebase token refresh
    */
   private async performTokenRefresh(refreshToken: string): Promise<void> {
     try {
-      const response = await axios.post(
-        `${this.configManager.config.endpoint}/api/auth/refresh`,
-        { refreshToken },
-        { timeout: this.configManager.config.timeout }
-      );
-
-      const refreshResponse = RefreshTokenResponseSchema.parse(response.data);
+      const refreshResult = await this.firebaseAuthService.refreshIdToken(refreshToken);
       
-      this.configManager.updateTokens(
-        refreshResponse.accessToken,
-        refreshResponse.refreshToken,
-        refreshResponse.expiresIn
+      // Update configuration with new Firebase tokens
+      this.configManager.updateFirebaseTokens(
+        refreshResult.idToken,
+        refreshResult.refreshToken,
+        refreshResult.expiresIn,
+        this.configManager.getFirebaseUid()!,
+        this.configManager.getUserEmail()
       );
     } catch (error) {
-      this.configManager.clearTokens();
-      throw new APIError('Token refresh failed', 401, this.getErrorMessage(error));
+      // Clear Firebase tokens on error
+      this.configManager.clearFirebaseTokens();
+      
+      const errorMessage = error instanceof FirebaseAuthError 
+        ? error.message 
+        : this.getErrorMessage(error);
+      throw new APIError('Token refresh failed', 401, errorMessage);
     }
   }
 
@@ -263,40 +264,49 @@ export class APIClient {
   // Authentication API methods
 
   /**
-   * Login user
+   * Login user with Firebase ID Token
+   * This is the primary authentication method for Firebase auth
    */
-  async login(email: string, password: string): Promise<AuthResponse> {
-    const loginData = LoginRequestSchema.parse({ email, password });
+  async firebaseLogin(idToken: string, userInfo: any): Promise<FirebaseBackendLoginResponse> {
+    const loginData: FirebaseBackendLoginRequest = { 
+      firebaseToken: idToken,
+      user: userInfo 
+    };
     
     try {
-      const response = await this.httpClient.post('/api/auth/login', loginData);
-      return AuthResponseSchema.parse(response.data);
+      const response = await this.httpClient.post('/api/auth/firebase-login', loginData);
+      return response.data;
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }
   }
 
-  /**
-   * Register new user
-   */
-  async register(email: string, password: string): Promise<RegisterResponse> {
-    const registerData = RegisterRequestSchema.parse({ email, password });
-    
-    try {
-      const response = await this.httpClient.post('/api/auth/register', registerData);
-      return RegisterResponseSchema.parse(response.data);
-    } catch (error) {
-      throw this.handleError(error as AxiosError);
-    }
-  }
 
   /**
-   * Verify current token
+   * Verify current Firebase ID token
    */
   async verifyToken(): Promise<AuthVerifyResponse> {
     try {
-      const response = await this.httpClient.post('/api/auth/verify');
-      return AuthVerifyResponseSchema.parse(response.data);
+      const idToken = this.configManager.config.firebaseIdToken;
+      if (!idToken) {
+        throw new APIError('No Firebase ID token available', 401);
+      }
+
+      try {
+        const userInfo = await this.firebaseAuthService.verifyIdToken(idToken);
+        return {
+          valid: true,
+          user_id: userInfo.uid,
+        };
+      } catch (error) {
+        if (error instanceof FirebaseAuthError) {
+          return {
+            valid: false,
+            error: error.message,
+          };
+        }
+        throw error;
+      }
     } catch (error) {
       throw this.handleError(error as AxiosError);
     }

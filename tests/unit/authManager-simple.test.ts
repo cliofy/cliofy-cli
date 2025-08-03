@@ -35,21 +35,23 @@ describe('AuthManager Simple Tests', () => {
       get: jest.fn(() => ({
         endpoint: DEFAULT_CONFIG.endpoint,
         timeout: DEFAULT_CONFIG.timeout,
-        apiKey: undefined,
-        userId: undefined
+        firebaseIdToken: undefined,
+        firebaseUid: undefined,
+        userEmail: undefined
       })),
       configurable: true
     });
     
     mockConfigManager.isAuthenticated = jest.fn().mockReturnValue(false);
-    mockConfigManager.updateTokens = jest.fn();
+    mockConfigManager.updateFirebaseTokens = jest.fn();
     mockConfigManager.updateConfig = jest.fn();
     mockConfigManager.clearTokens = jest.fn();
+    mockConfigManager.getFirebaseUid = jest.fn();
+    mockConfigManager.getUserEmail = jest.fn();
     
     // Setup mock API client
     mockApiClient = {
-      login: jest.fn(),
-      register: jest.fn(),
+      firebaseLogin: jest.fn(),
       verifyToken: jest.fn(),
       getUserProfile: jest.fn()
     } as any;
@@ -67,18 +69,24 @@ describe('AuthManager Simple Tests', () => {
     });
 
     it('should handle successful login', async () => {
-      const mockAuthResponse = {
-        accessToken: 'mock-access-token',
-        refreshToken: 'mock-refresh-token', 
-        expiresIn: 3600,
-        user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          created_at: '2024-01-01T00:00:00Z'
-        }
+      // Mock Firebase auth service response
+      const mockFirebaseAuthService = {
+        authenticateWithEmailPassword: jest.fn().mockResolvedValue({
+          idToken: 'mock-firebase-id-token',
+          refreshToken: 'mock-firebase-refresh-token',
+          expiresIn: 3600,
+          userInfo: {
+            uid: 'user-123',
+            email: 'test@example.com',
+            emailVerified: true
+          }
+        })
       };
       
-      mockApiClient.login.mockResolvedValue(mockAuthResponse);
+      // Mock the Firebase auth service in AuthManager
+      jest.doMock('../../packages/core/src/firebase/auth', () => ({
+        FirebaseAuthService: jest.fn(() => mockFirebaseAuthService)
+      }));
       
       const authManager = new AuthManager(mockConfigManager);
       const result = await authManager.login('test@example.com', 'password123');
@@ -86,11 +94,12 @@ describe('AuthManager Simple Tests', () => {
       expect(result.success).toBe(true);
       expect(result.user).toBeDefined();
       expect(result.user?.email).toBe('test@example.com');
-      expect(mockApiClient.login).toHaveBeenCalledWith('test@example.com', 'password123');
-      expect(mockConfigManager.updateTokens).toHaveBeenCalledWith(
-        mockAuthResponse.accessToken,
-        mockAuthResponse.refreshToken,
-        mockAuthResponse.expiresIn
+      expect(mockConfigManager.updateFirebaseTokens).toHaveBeenCalledWith(
+        'mock-firebase-id-token',
+        'mock-firebase-refresh-token',
+        3600,
+        'user-123',
+        'test@example.com'
       );
     });
 

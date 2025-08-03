@@ -6,14 +6,20 @@ import { z } from 'zod';
 
 /**
  * Configuration schema for validation
+ * Uses Firebase authentication exclusively
  */
 export const ConfigSchema = z.object({
   endpoint: z.string().url().default('http://localhost:5173'),
   timeout: z.number().int().positive().default(30000),
-  apiKey: z.string().optional(),
-  refreshToken: z.string().optional(),
-  tokenExpiresAt: z.number().optional(),
-  userId: z.string().optional(),
+  
+  // Firebase authentication fields
+  firebaseIdToken: z.string().optional(),
+  firebaseRefreshToken: z.string().optional(),
+  firebaseUid: z.string().optional(),
+  userEmail: z.string().email().optional(),
+  firebaseTokenExpiresAt: z.number().optional(),
+  
+  // Legacy field for backwards compatibility during migration
   lastLogin: z.string().optional(),
 });
 

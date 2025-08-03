@@ -1,48 +1,17 @@
 /**
  * Authentication-related data models and schemas
+ * Uses Firebase authentication exclusively
  */
 
 import { z } from 'zod';
 
-// Export schemas for runtime use
-export const LoginRequestSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-export const RegisterRequestSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
-
+// User schema for compatibility
 export const UserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   created_at: z.string(),
+  updated_at: z.string().optional(),
   last_sign_in_at: z.string().optional(),
-});
-
-export const AuthResponseSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-  expiresIn: z.number().int().positive(),
-  expires_at: z.string().optional(),
-  user: UserSchema,
-});
-
-export const RegisterResponseSchema = z.object({
-  user: UserSchema,
-  message: z.string().optional(),
-});
-
-export const RefreshTokenRequestSchema = z.object({
-  refreshToken: z.string(),
-});
-
-export const RefreshTokenResponseSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-  expiresIn: z.number().int().positive(),
 });
 
 export const AuthVerifyResponseSchema = z.object({
@@ -83,13 +52,7 @@ export const AuthErrorSchema = z.object({
 });
 
 // Type definitions
-export type LoginRequest = z.infer<typeof LoginRequestSchema>;
-export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 export type User = z.infer<typeof UserSchema>;
-export type AuthResponse = z.infer<typeof AuthResponseSchema>;
-export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
-export type RefreshTokenRequest = z.infer<typeof RefreshTokenRequestSchema>;
-export type RefreshTokenResponse = z.infer<typeof RefreshTokenResponseSchema>;
 export type AuthVerifyResponse = z.infer<typeof AuthVerifyResponseSchema>;
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 export type UserProfileResponse = z.infer<typeof UserProfileResponseSchema>;
@@ -186,5 +149,121 @@ export const AuthHelpers = {
       valid: errors.length === 0,
       errors,
     };
+  },
+};
+
+// Firebase-specific schemas and types
+
+/**
+ * Firebase user info schema
+ */
+export const FirebaseUserInfoSchema = z.object({
+  uid: z.string(),
+  email: z.string().email(),
+  emailVerified: z.boolean(),
+});
+
+/**
+ * Firebase authentication request schema
+ */
+export const FirebaseLoginRequestSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+/**
+ * Firebase authentication response schema
+ */
+export const FirebaseAuthResponseSchema = z.object({
+  idToken: z.string(),
+  refreshToken: z.string(),
+  userInfo: FirebaseUserInfoSchema,
+  expiresIn: z.number().int().positive(),
+});
+
+/**
+ * Firebase token refresh request schema
+ */
+export const FirebaseRefreshTokenRequestSchema = z.object({
+  refreshToken: z.string(),
+});
+
+/**
+ * Firebase token refresh response schema
+ */
+export const FirebaseRefreshTokenResponseSchema = z.object({
+  idToken: z.string(),
+  refreshToken: z.string(),
+  expiresIn: z.number().int().positive(),
+});
+
+/**
+ * Firebase backend login request schema
+ */
+export const FirebaseBackendLoginRequestSchema = z.object({
+  firebaseToken: z.string(),
+  user: FirebaseUserInfoSchema,
+});
+
+/**
+ * Firebase backend login response schema
+ */
+export const FirebaseBackendLoginResponseSchema = z.object({
+  success: z.boolean(),
+  user: z.object({
+    uid: z.string(),
+    email: z.string(),
+    name: z.string().optional(),
+  }).optional(),
+  error: z.string().optional(),
+});
+
+// Firebase type definitions
+export type FirebaseUserInfo = z.infer<typeof FirebaseUserInfoSchema>;
+export type FirebaseLoginRequest = z.infer<typeof FirebaseLoginRequestSchema>;
+export type FirebaseAuthResponse = z.infer<typeof FirebaseAuthResponseSchema>;
+export type FirebaseRefreshTokenRequest = z.infer<typeof FirebaseRefreshTokenRequestSchema>;
+export type FirebaseRefreshTokenResponse = z.infer<typeof FirebaseRefreshTokenResponseSchema>;
+export type FirebaseBackendLoginRequest = z.infer<typeof FirebaseBackendLoginRequestSchema>;
+export type FirebaseBackendLoginResponse = z.infer<typeof FirebaseBackendLoginResponseSchema>;
+
+/**
+ * Extended AuthHelpers with Firebase support
+ */
+export const FirebaseAuthHelpers = {
+  ...AuthHelpers,
+
+  /**
+   * Check if using Firebase authentication
+   */
+  isFirebaseAuth(token?: string): boolean {
+    if (!token) return false;
+    // Firebase ID tokens are typically longer and have a different structure
+    // This is a simple heuristic check
+    return token.length > 500 && token.split('.').length === 3;
+  },
+
+  /**
+   * Get Firebase token expiry (Firebase tokens have exp in seconds)
+   */
+  getFirebaseTokenExpiry(idToken: string): number | null {
+    const payload = this.parseJWT(idToken);
+    return payload?.exp ? payload.exp * 1000 : null; // Convert to ms
+  },
+
+  /**
+   * Check if Firebase token is expired
+   */
+  isFirebaseTokenExpired(idToken: string): boolean {
+    const expiresAt = this.getFirebaseTokenExpiry(idToken);
+    return this.isTokenExpired(expiresAt ?? undefined);
+  },
+
+  /**
+   * Check if Firebase token needs refresh
+   */
+  firebaseNeedsRefresh(idToken: string): boolean {
+    const expiresAt = this.getFirebaseTokenExpiry(idToken);
+    return this.needsRefresh(expiresAt ?? undefined);
   },
 };

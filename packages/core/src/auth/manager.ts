@@ -1,17 +1,16 @@
 /**
  * Authentication manager for Cliofy CLI
  * Handles user authentication, token management, and session state
+ * Uses Firebase authentication exclusively
  */
 
 import { ConfigManager } from '../config/manager';
 import { APIClient } from '../api/client';
+import { FirebaseAuthService, FirebaseAuthError } from '../firebase/auth';
 import {
-  AuthResponse,
-  RegisterResponse,
-  AuthVerifyResponse,
   UserProfile,
   AuthStatus,
-  AuthHelpers,
+  FirebaseAuthHelpers,
 } from '../models/auth';
 
 /**
@@ -20,14 +19,16 @@ import {
 export class AuthManager {
   private configManager: ConfigManager;
   private apiClient: APIClient;
+  private firebaseAuthService: FirebaseAuthService;
 
   constructor(configManager: ConfigManager) {
     this.configManager = configManager;
     this.apiClient = APIClient.getInstance(configManager);
+    this.firebaseAuthService = new FirebaseAuthService();
   }
 
   /**
-   * Login user with email and password
+   * Login user with email and password using Firebase authentication
    */
   async login(email: string, password: string): Promise<{
     success: boolean;
@@ -36,7 +37,7 @@ export class AuthManager {
   }> {
     try {
       // Validate input
-      if (!AuthHelpers.isValidEmail(email)) {
+      if (!FirebaseAuthHelpers.isValidEmail(email)) {
         return { success: false, error: 'Invalid email format' };
       }
 
@@ -44,28 +45,29 @@ export class AuthManager {
         return { success: false, error: 'Password is required' };
       }
 
-      // Attempt login
-      const authResponse = await this.apiClient.login(email, password);
-
-      // Update configuration with auth data
-      this.configManager.updateTokens(
-        authResponse.accessToken,
-        authResponse.refreshToken,
-        authResponse.expiresIn
+      // Use Firebase authentication
+      const authResult = await this.firebaseAuthService.authenticateWithEmailPassword(
+        email,
+        password,
+        this.configManager.config.endpoint
       );
 
-      this.configManager.updateConfig({
-        userId: authResponse.user.id,
-        lastLogin: authResponse.user.last_sign_in_at || new Date().toISOString(),
-      });
+      // Update configuration with Firebase auth data
+      this.configManager.updateFirebaseTokens(
+        authResult.idToken,
+        authResult.refreshToken,
+        authResult.expiresIn,
+        authResult.userInfo.uid,
+        authResult.userInfo.email
+      );
 
-      // Convert User to UserProfile format for consistency
+      // Convert Firebase user info to UserProfile format
       const userProfile: UserProfile = {
-        id: authResponse.user.id,
-        email: authResponse.user.email,
-        created_at: authResponse.user.created_at,
-        updated_at: authResponse.user.created_at, // Use created_at as fallback
-        last_sign_in_at: authResponse.user.last_sign_in_at,
+        id: authResult.userInfo.uid,
+        email: authResult.userInfo.email,
+        created_at: new Date().toISOString(), // Firebase doesn't provide created_at in auth
+        updated_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
         display_name: undefined,
         avatar_url: undefined,
         timezone: undefined,
@@ -74,13 +76,16 @@ export class AuthManager {
 
       return { success: true, user: userProfile };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      if (error instanceof FirebaseAuthError) {
+        return { success: false, error: error.message };
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
       return { success: false, error: errorMessage };
     }
   }
 
   /**
-   * Register new user
+   * Register new user using Firebase authentication
    */
   async register(email: string, password: string): Promise<{
     success: boolean;
@@ -89,25 +94,38 @@ export class AuthManager {
   }> {
     try {
       // Validate input
-      if (!AuthHelpers.isValidEmail(email)) {
+      if (!FirebaseAuthHelpers.isValidEmail(email)) {
         return { success: false, error: 'Invalid email format' };
       }
 
-      const passwordValidation = AuthHelpers.isValidPassword(password);
+      const passwordValidation = FirebaseAuthHelpers.isValidPassword(password);
       if (!passwordValidation.valid) {
         return { success: false, error: passwordValidation.errors.join(', ') };
       }
 
-      // Attempt registration
-      const registerResponse = await this.apiClient.register(email, password);
+      // Use Firebase registration
+      const authResult = await this.firebaseAuthService.registerWithEmailPassword(
+        email,
+        password,
+        this.configManager.config.endpoint
+      );
 
-      // Convert User to UserProfile format
+      // Update configuration with Firebase auth data
+      this.configManager.updateFirebaseTokens(
+        authResult.idToken,
+        authResult.refreshToken,
+        authResult.expiresIn,
+        authResult.userInfo.uid,
+        authResult.userInfo.email
+      );
+
+      // Convert Firebase user info to UserProfile format
       const userProfile: UserProfile = {
-        id: registerResponse.user.id,
-        email: registerResponse.user.email,
-        created_at: registerResponse.user.created_at,
-        updated_at: registerResponse.user.created_at,
-        last_sign_in_at: registerResponse.user.last_sign_in_at,
+        id: authResult.userInfo.uid,
+        email: authResult.userInfo.email,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
         display_name: undefined,
         avatar_url: undefined,
         timezone: undefined,
@@ -116,7 +134,10 @@ export class AuthManager {
 
       return { success: true, user: userProfile };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      if (error instanceof FirebaseAuthError) {
+        return { success: false, error: error.message };
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
       return { success: false, error: errorMessage };
     }
   }
@@ -137,14 +158,17 @@ export class AuthManager {
 
   /**
    * Get current authentication status
+   * Uses Firebase authentication exclusively
    */
   getAuthStatus(): AuthStatus {
-    if (!this.configManager.config.apiKey) {
+    // Check if user is authenticated
+    if (!this.configManager.isAuthenticated()) {
       return AuthStatus.UNAUTHENTICATED;
     }
 
-    if (this.configManager.needsTokenRefresh()) {
-      const refreshToken = this.configManager.getRefreshToken();
+    // Check if Firebase token needs refresh
+    if (this.configManager.needsFirebaseTokenRefresh()) {
+      const refreshToken = this.configManager.getFirebaseRefreshToken();
       if (!refreshToken) {
         return AuthStatus.TOKEN_EXPIRED;
       }
@@ -156,6 +180,7 @@ export class AuthManager {
 
   /**
    * Verify current token with the server
+   * Uses Firebase ID Token verification
    */
   async verifyToken(): Promise<{
     valid: boolean;
@@ -167,20 +192,27 @@ export class AuthManager {
         return { valid: false, error: 'Not authenticated' };
       }
 
-      const verifyResponse = await this.apiClient.verifyToken();
+      const idToken = this.configManager.config.firebaseIdToken;
+      if (!idToken) {
+        return { valid: false, error: 'No Firebase ID token available' };
+      }
 
-      if (verifyResponse.valid) {
+      try {
+        const userInfo = await this.firebaseAuthService.verifyIdToken(idToken);
         return {
           valid: true,
-          userId: verifyResponse.user_id,
+          userId: userInfo.uid,
         };
-      } else {
-        // Token is invalid, clear it
-        this.configManager.clearTokens();
-        return {
-          valid: false,
-          error: verifyResponse.error || 'Token is invalid',
-        };
+      } catch (error) {
+        if (error instanceof FirebaseAuthError) {
+          // Token is invalid, clear it
+          this.configManager.clearFirebaseTokens();
+          return {
+            valid: false,
+            error: error.message,
+          };
+        }
+        throw error;
       }
     } catch (error) {
       // Network or other error
@@ -211,10 +243,10 @@ export class AuthManager {
   }
 
   /**
-   * Get current user ID from config
+   * Get current user ID from Firebase config
    */
   getCurrentUserId(): string | undefined {
-    return this.configManager.config.userId;
+    return this.configManager.getFirebaseUid();
   }
 
   /**
@@ -225,30 +257,46 @@ export class AuthManager {
   }
 
   /**
-   * Check if token needs refresh
+   * Check if Firebase token needs refresh
    */
   needsTokenRefresh(): boolean {
-    return this.configManager.needsTokenRefresh();
+    return this.configManager.needsFirebaseTokenRefresh();
   }
 
   /**
-   * Force token refresh
+   * Force Firebase token refresh
    */
   async refreshToken(): Promise<{
     success: boolean;
     error?: string;
   }> {
     try {
-      const refreshToken = this.configManager.getRefreshToken();
+      const refreshToken = this.configManager.getFirebaseRefreshToken();
       if (!refreshToken) {
-        return { success: false, error: 'No refresh token available' };
+        return { success: false, error: 'No Firebase refresh token available' };
       }
 
-      // The API client will handle the actual refresh through its interceptors
-      // We just need to trigger a request that will cause the refresh
-      await this.verifyToken();
-      
-      return { success: true };
+      try {
+        const refreshResult = await this.firebaseAuthService.refreshIdToken(refreshToken);
+        
+        // Update configuration with new tokens
+        this.configManager.updateFirebaseTokens(
+          refreshResult.idToken,
+          refreshResult.refreshToken,
+          refreshResult.expiresIn,
+          this.configManager.getFirebaseUid()!,
+          this.configManager.getUserEmail()
+        );
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof FirebaseAuthError) {
+          // Refresh failed, clear tokens
+          this.configManager.clearFirebaseTokens();
+          return { success: false, error: error.message };
+        }
+        throw error;
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return { success: false, error: errorMessage };
@@ -263,21 +311,32 @@ export class AuthManager {
   }
 
   /**
-   * Get token expiry information
+   * Get Firebase token expiry information
    */
   getTokenInfo(): {
     hasToken: boolean;
     expiresAt?: number;
     isExpired: boolean;
     needsRefresh: boolean;
+    authType: 'firebase' | 'none';
   } {
     const config = this.configManager.config;
     
+    if (config.firebaseIdToken) {
+      return {
+        hasToken: true,
+        expiresAt: config.firebaseTokenExpiresAt,
+        isExpired: FirebaseAuthHelpers.isTokenExpired(config.firebaseTokenExpiresAt),
+        needsRefresh: FirebaseAuthHelpers.needsRefresh(config.firebaseTokenExpiresAt),
+        authType: 'firebase',
+      };
+    }
+
     return {
-      hasToken: !!config.apiKey,
-      expiresAt: config.tokenExpiresAt,
-      isExpired: AuthHelpers.isTokenExpired(config.tokenExpiresAt),
-      needsRefresh: AuthHelpers.needsRefresh(config.tokenExpiresAt),
+      hasToken: false,
+      isExpired: true,
+      needsRefresh: false,
+      authType: 'none',
     };
   }
 
@@ -290,6 +349,7 @@ export class AuthManager {
 
   /**
    * Export auth state for debugging
+   * Firebase authentication information
    */
   exportAuthState(): {
     isAuthenticated: boolean;
@@ -297,6 +357,9 @@ export class AuthManager {
     lastLogin?: string;
     tokenInfo: ReturnType<AuthManager['getTokenInfo']>;
     authStatus: AuthStatus;
+    // Firebase fields
+    firebaseUid?: string;
+    userEmail?: string;
   } {
     return {
       isAuthenticated: this.isAuthenticated(),
@@ -304,6 +367,48 @@ export class AuthManager {
       lastLogin: this.getLastLogin(),
       tokenInfo: this.getTokenInfo(),
       authStatus: this.getAuthStatus(),
+      // Firebase information
+      firebaseUid: this.configManager.getFirebaseUid(),
+      userEmail: this.configManager.getUserEmail(),
+    };
+  }
+
+  /**
+   * Get Firebase UID
+   */
+  getFirebaseUid(): string | undefined {
+    return this.configManager.getFirebaseUid();
+  }
+
+  /**
+   * Get user email from Firebase auth
+   */
+  getUserEmail(): string | undefined {
+    return this.configManager.getUserEmail();
+  }
+
+  /**
+   * Clear only Firebase authentication data
+   */
+  clearFirebaseAuth(): void {
+    this.configManager.clearFirebaseTokens();
+  }
+
+  /**
+   * Get Firebase token information
+   */
+  getFirebaseTokenInfo(): {
+    hasToken: boolean;
+    expiresAt?: number;
+    isExpired: boolean;
+    needsRefresh: boolean;
+  } {
+    const config = this.configManager.config;
+    return {
+      hasToken: !!config.firebaseIdToken,
+      expiresAt: config.firebaseTokenExpiresAt,
+      isExpired: FirebaseAuthHelpers.isTokenExpired(config.firebaseTokenExpiresAt),
+      needsRefresh: FirebaseAuthHelpers.needsRefresh(config.firebaseTokenExpiresAt),
     };
   }
 }

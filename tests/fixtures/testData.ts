@@ -2,7 +2,7 @@
  * Test data fixtures for consistent test data across all test suites
  */
 
-import type { Task, User, AuthResponse, Config } from '../../packages/core/src';
+import type { Task, User, Config, FirebaseAuthResponse } from '../../packages/core/src';
 
 // User test data
 export const mockUsers = {
@@ -23,20 +23,28 @@ export const mockUsers = {
   }
 };
 
-// Auth response test data
-export const mockAuthResponses = {
+// Firebase auth response test data
+export const mockFirebaseAuthResponses = {
   validLogin: {
-    accessToken: 'mock-access-token-123',
-    refreshToken: 'mock-refresh-token-123',
+    idToken: 'mock-firebase-id-token-123',
+    refreshToken: 'mock-firebase-refresh-token-123',
     expiresIn: 3600,
-    user: mockUsers.validUser
+    userInfo: {
+      uid: mockUsers.validUser.id,
+      email: mockUsers.validUser.email,
+      emailVerified: true
+    }
   },
   
   refreshedToken: {
-    accessToken: 'mock-new-access-token-456',
-    refreshToken: 'mock-new-refresh-token-456',
+    idToken: 'mock-new-firebase-id-token-456',
+    refreshToken: 'mock-new-firebase-refresh-token-456',
     expiresIn: 3600,
-    user: mockUsers.validUser
+    userInfo: {
+      uid: mockUsers.validUser.id,
+      email: mockUsers.validUser.email,
+      emailVerified: true
+    }
   }
 };
 
@@ -151,19 +159,21 @@ export const mockConfigs = {
   authenticated: {
     endpoint: getTestEndpoint(),
     timeout: 30000,
-    apiKey: mockAuthResponses.validLogin.accessToken,
-    refreshToken: mockAuthResponses.validLogin.refreshToken,
-    tokenExpiresAt: Date.now() + 3600000, // 1 hour from now
-    userId: mockUsers.validUser.id
+    firebaseIdToken: mockFirebaseAuthResponses.validLogin.idToken,
+    firebaseRefreshToken: mockFirebaseAuthResponses.validLogin.refreshToken,
+    firebaseTokenExpiresAt: Date.now() + 3600000, // 1 hour from now
+    firebaseUid: mockUsers.validUser.id,
+    userEmail: mockUsers.validUser.email
   },
   
   expired: {
     endpoint: getTestEndpoint(),
     timeout: 30000,
-    apiKey: 'expired-token',
-    refreshToken: 'expired-refresh-token',
-    tokenExpiresAt: Date.now() - 3600000, // 1 hour ago
-    userId: mockUsers.validUser.id
+    firebaseIdToken: 'expired-firebase-id-token',
+    firebaseRefreshToken: 'expired-firebase-refresh-token',
+    firebaseTokenExpiresAt: Date.now() - 3600000, // 1 hour ago
+    firebaseUid: mockUsers.validUser.id,
+    userEmail: mockUsers.validUser.email
   }
 };
 

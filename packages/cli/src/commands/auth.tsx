@@ -119,7 +119,7 @@ export const AuthCommand: React.FC<AuthCommandProps> = ({ subcommand, context, a
 
   const handleVerify = async (): Promise<void> => {
     if (!context.authManager.isAuthenticated()) {
-      setError('Not authenticated. Please run \\'cliofy auth login\\' first.');
+      setError('Not authenticated. Please run "cliofy auth login" first.');
       return;
     }
 
@@ -140,7 +140,7 @@ export const AuthCommand: React.FC<AuthCommandProps> = ({ subcommand, context, a
 
   const handleWhoami = async (): Promise<void> => {
     if (!context.authManager.isAuthenticated()) {
-      setError('Not authenticated. Please run \\'cliofy auth login\\' first.');
+      setError('Not authenticated. Please run "cliofy auth login" first.');
       return;
     }
 

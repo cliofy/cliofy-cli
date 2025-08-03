@@ -4,7 +4,7 @@
 
 import MockAdapter from 'axios-mock-adapter';
 import axios from 'axios';
-import { mockAuthResponses, mockTasks, mockTaskLists, mockApiErrors, mockHealthResponses } from '../fixtures/testData';
+import { mockFirebaseAuthResponses, mockTasks, mockTaskLists, mockApiErrors, mockHealthResponses } from '../fixtures/testData';
 
 // Create axios mock adapter
 export const createApiMock = () => {
@@ -21,38 +21,23 @@ export const setupCommonApiMocks = (mock: MockAdapter) => {
   // Health check endpoint
   mock.onGet('/api/health-check').reply(200, mockHealthResponses.healthy);
   
-  // Auth endpoints
-  mock.onPost('/api/auth/login').reply((config) => {
-    const { email, password } = JSON.parse(config.data);
+  // Firebase Auth endpoints
+  mock.onPost('/api/auth/firebase-login').reply((config) => {
+    const { firebaseToken, user } = JSON.parse(config.data);
     
-    if (email === 'test@example.com' && password === 'password123') {
-      return [200, mockAuthResponses.validLogin];
-    } else if (email === 'invalid@example.com') {
+    if (firebaseToken === 'mock-firebase-id-token-123' && user?.email === 'test@example.com') {
+      return [200, { 
+        success: true,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          name: user.name
+        }
+      }];
+    } else if (firebaseToken === 'invalid-firebase-token') {
       return [401, mockApiErrors.unauthorized.data];
     } else {
       return [400, mockApiErrors.validationError.data];
-    }
-  });
-  
-  mock.onPost('/api/auth/register').reply((config) => {
-    const { email, password } = JSON.parse(config.data);
-    
-    if (email && password && password.length >= 6) {
-      return [201, mockAuthResponses.validLogin];
-    } else if (email === 'existing@example.com') {
-      return [400, { error: 'Email already registered' }];
-    } else {
-      return [400, mockApiErrors.validationError.data];
-    }
-  });
-  
-  mock.onPost('/api/auth/refresh').reply((config) => {
-    const { refreshToken } = JSON.parse(config.data);
-    
-    if (refreshToken === mockAuthResponses.validLogin.refreshToken) {
-      return [200, mockAuthResponses.refreshedToken];
-    } else {
-      return [401, mockApiErrors.unauthorized.data];
     }
   });
   
@@ -231,7 +216,12 @@ export const axiosMock = {
 export const mockApiResponses = {
   // Successful responses
   healthCheck: () => Promise.resolve({ data: mockHealthResponses.healthy }),
-  login: () => Promise.resolve({ data: mockAuthResponses.validLogin }),
+  firebaseLogin: () => Promise.resolve({ 
+    data: { 
+      success: true,
+      user: mockFirebaseAuthResponses.validLogin.userInfo
+    }
+  }),
   taskList: () => Promise.resolve({ data: mockTaskLists.simple }),
   taskCreate: (title: string) => Promise.resolve({ 
     data: { ...mockTasks.simpleTask, title, id: `task-${Date.now()}` }

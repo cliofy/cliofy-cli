@@ -135,6 +135,7 @@ export class ConfigManager {
 
   /**
    * Get API headers for HTTP requests
+   * Uses Firebase ID Token for authentication
    */
   getApiHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
@@ -142,8 +143,9 @@ export class ConfigManager {
       'User-Agent': 'cliofy-cli/0.1.0',
     };
 
-    if (this.config.apiKey) {
-      headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+    // Use Firebase ID Token for authentication
+    if (this.config.firebaseIdToken) {
+      headers['Authorization'] = `Bearer ${this.config.firebaseIdToken}`;
     }
 
     return headers;
@@ -151,53 +153,91 @@ export class ConfigManager {
 
   /**
    * Check if user is authenticated
+   * Uses Firebase authentication exclusively
    */
   isAuthenticated(): boolean {
-    return !!(this.config.apiKey && this.config.userId);
+    return !!(this.config.firebaseIdToken && this.config.firebaseUid);
   }
 
   /**
-   * Check if access token needs refresh
+   * Clear Firebase authentication tokens
    */
-  needsTokenRefresh(): boolean {
-    if (!this.config.tokenExpiresAt) {
+  clearTokens(): void {
+    this.updateConfig({
+      firebaseIdToken: undefined,
+      firebaseRefreshToken: undefined,
+      firebaseUid: undefined,
+      userEmail: undefined,
+      firebaseTokenExpiresAt: undefined,
+    });
+  }
+
+  /**
+   * Update Firebase authentication tokens
+   */
+  updateFirebaseTokens(
+    idToken: string,
+    refreshToken: string,
+    expiresIn: number,
+    uid: string,
+    email?: string
+  ): void {
+    const currentTime = Date.now();
+    this.updateConfig({
+      firebaseIdToken: idToken,
+      firebaseRefreshToken: refreshToken,
+      firebaseUid: uid,
+      userEmail: email,
+      firebaseTokenExpiresAt: currentTime + (expiresIn * 1000), // Convert seconds to ms
+      lastLogin: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Get Firebase refresh token
+   */
+  getFirebaseRefreshToken(): string | undefined {
+    return this.config.firebaseRefreshToken;
+  }
+
+  /**
+   * Get Firebase UID
+   */
+  getFirebaseUid(): string | undefined {
+    return this.config.firebaseUid;
+  }
+
+  /**
+   * Get user email
+   */
+  getUserEmail(): string | undefined {
+    return this.config.userEmail;
+  }
+
+  /**
+   * Check if Firebase token needs refresh
+   */
+  needsFirebaseTokenRefresh(): boolean {
+    if (!this.config.firebaseTokenExpiresAt) {
       return false;
     }
 
     // Refresh if token expires in less than 5 minutes
     const bufferTime = 5 * 60 * 1000; // 5 minutes in ms
     const currentTime = Date.now();
-    return currentTime >= (this.config.tokenExpiresAt - bufferTime);
+    return currentTime >= (this.config.firebaseTokenExpiresAt - bufferTime);
   }
 
   /**
-   * Update authentication tokens
+   * Clear only Firebase authentication tokens
    */
-  updateTokens(accessToken: string, refreshToken: string, expiresIn: number): void {
-    const currentTime = Date.now();
+  clearFirebaseTokens(): void {
     this.updateConfig({
-      apiKey: accessToken,
-      refreshToken: refreshToken,
-      tokenExpiresAt: currentTime + (expiresIn * 1000), // Convert seconds to ms
-    });
-  }
-
-  /**
-   * Get refresh token
-   */
-  getRefreshToken(): string | undefined {
-    return this.config.refreshToken;
-  }
-
-  /**
-   * Clear authentication tokens
-   */
-  clearTokens(): void {
-    this.updateConfig({
-      apiKey: undefined,
-      refreshToken: undefined,
-      tokenExpiresAt: undefined,
-      userId: undefined,
+      firebaseIdToken: undefined,
+      firebaseRefreshToken: undefined,
+      firebaseUid: undefined,
+      userEmail: undefined,
+      firebaseTokenExpiresAt: undefined,
     });
   }
 

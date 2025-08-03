@@ -3,6 +3,11 @@
  * Exports all public APIs for the Cliofy CLI core functionality
  */
 
+// Import classes for internal use
+import { ConfigManager } from './config/manager';
+import { APIClient } from './api/client';
+import { AuthManager } from './auth/manager';
+
 // Configuration
 export { ConfigManager } from './config/manager';
 export type { Config, ConfigUpdate } from './config/types';
@@ -13,21 +18,37 @@ export { APIClient, APIError } from './api/client';
 
 // Authentication
 export { AuthManager } from './auth/manager';
-export { AuthStatus, AuthHelpers } from './models/auth';
+export { AuthStatus, FirebaseAuthHelpers } from './models/auth';
 export type {
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
-  RegisterResponse,
-  RefreshTokenRequest,
-  RefreshTokenResponse,
   AuthVerifyResponse,
   UserProfile,
   UserProfileResponse,
   UpdateProfileRequest,
   User,
   AuthError,
+  // Firebase-specific types
+  FirebaseUserInfo,
+  FirebaseLoginRequest,
+  FirebaseAuthResponse,
+  FirebaseRefreshTokenRequest,
+  FirebaseRefreshTokenResponse,
+  FirebaseBackendLoginRequest,
+  FirebaseBackendLoginResponse,
 } from './models/auth';
+
+// Firebase
+export {
+  FirebaseConfigManager,
+  firebaseConfig,
+  FirebaseAuthService,
+  FirebaseAuthError,
+  firebaseAuthService,
+} from './firebase';
+export type {
+  FirebaseConfig,
+  FirebaseAuthResult,
+  FirebaseTokenRefreshResult,
+} from './firebase';
 
 // Task Models
 export type {
@@ -66,12 +87,6 @@ export {
 } from './models/task';
 
 export {
-  LoginRequestSchema,
-  RegisterRequestSchema,
-  AuthResponseSchema,
-  RegisterResponseSchema,
-  RefreshTokenRequestSchema,
-  RefreshTokenResponseSchema,
   AuthVerifyResponseSchema,
   UserProfileSchema,
   UserProfileResponseSchema,
@@ -82,9 +97,9 @@ export {
 
 // Utility types
 export interface CoreContext {
-  configManager: ConfigManager;
-  apiClient: APIClient;
-  authManager: AuthManager;
+  configManager: import('./config/manager').ConfigManager;
+  apiClient: import('./api/client').APIClient;
+  authManager: import('./auth/manager').AuthManager;
 }
 
 /**
